@@ -38,15 +38,22 @@ public class UIManager : MonoBehaviour
     [SerializeField]
     UnityEngine.UI.Button startGameButton;
 
+    [SerializeField]
+    List<TextMeshProUGUI> highScoreList;
+
     // Start is called before the first frame update
     void Start()
     {
-        startGameButton.interactable = false;
+        
         SetDropdownList();
         if(MainManager.Instance.playerIndex != -1)
         {
             welcomeText.text = "Welcome " + MainManager.Instance.playerList[MainManager.Instance.playerIndex].name;
             playerHighScoreText.text = "Your Best: " + MainManager.Instance.playerList[MainManager.Instance.playerIndex].highScore;
+        }
+        else
+        {
+            startGameButton.interactable = false;
         }
         if (MainManager.Instance.highScores != null && MainManager.Instance.highScores.Count > 0)
         {
@@ -127,6 +134,14 @@ public class UIManager : MonoBehaviour
 
     public void OpenHighScores()
     {
+
+
+
+        for(int i = 0;i < MainManager.Instance.highScores.Count; i++)
+        {
+            highScoreList[i].text = i + 1 + ". " + MainManager.Instance.highScores[i].name + " - " + MainManager.Instance.highScores[i].highScore;
+        }
+
         highScoresPanel.gameObject.SetActive(true);
         popup.gameObject.SetActive(true);
     }
