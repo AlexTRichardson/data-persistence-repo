@@ -1,76 +1,145 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
+using static UnityEditor.ShaderGraph.Internal.KeywordDependentCollection;
 
 public class MainManager : MonoBehaviour
 {
-    public Brick BrickPrefab;
-    public int LineCount = 6;
-    public Rigidbody Ball;
+    public static MainManager Instance;
 
-    public Text ScoreText;
-    public GameObject GameOverText;
-    
-    private bool m_Started = false;
-    private int m_Points;
-    
-    private bool m_GameOver = false;
+    public List<Player> playerList;
+    public List<Player> highScores;
 
-    
-    // Start is called before the first frame update
-    void Start()
+    public int playerIndex;
+
+
+    private void Awake()
     {
-        const float step = 0.6f;
-        int perLine = Mathf.FloorToInt(4.0f / step);
+        if (Instance != null)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+
+
+        playerList = new List<Player>();
+        highScores = new List<Player>();
+        playerIndex = -1;
+        LoadPlayerList();
+    }
+
+    [System.Serializable]
+    public class Player
+    {
+        public string name;
+        public int highScore = 0;
+    }
+
+    [System.Serializable]
+    public class SaveData
+    {
+        public List<Player> playerList;
+        public List<Player> highScores;
+    }
+
+    public void LoadPlayerList()
+    {
+        string path = Application.persistentDataPath + "/players.json";
+        if (File.Exists(path))
+        {
+            string json = File.ReadAllText(path);
+            SaveData saveData = JsonUtility.FromJson<SaveData>(json);
+            playerList = saveData.playerList;
+            highScores = saveData.highScores;
+        }
         
-        int[] pointCountArray = new [] {1,1,2,2,5,5};
-        for (int i = 0; i < LineCount; ++i)
-        {
-            for (int x = 0; x < perLine; ++x)
-            {
-                Vector3 position = new Vector3(-1.5f + step * x, 2.5f + i * 0.3f, 0);
-                var brick = Instantiate(BrickPrefab, position, Quaternion.identity);
-                brick.PointValue = pointCountArray[i];
-                brick.onDestroyed.AddListener(AddPoint);
-            }
-        }
     }
 
-    private void Update()
+    public void Save()
     {
-        if (!m_Started)
-        {
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                m_Started = true;
-                float randomDirection = Random.Range(-1.0f, 1.0f);
-                Vector3 forceDir = new Vector3(randomDirection, 1, 0);
-                forceDir.Normalize();
+        SaveData saveData = new SaveData();
+        saveData.playerList = playerList;
+        saveData.highScores = highScores;
 
-                Ball.transform.SetParent(null);
-                Ball.AddForce(forceDir * 2.0f, ForceMode.VelocityChange);
-            }
-        }
-        else if (m_GameOver)
-        {
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-            }
-        }
+        string json = JsonUtility.ToJson(saveData);
+        
+        File.WriteAllText(Application.persistentDataPath + "/players.json", json);
     }
 
-    void AddPoint(int point)
+    public void AddPlayer(string name)
     {
-        m_Points += point;
-        ScoreText.text = $"Score : {m_Points}";
+        Player newPlayer = new Player();
+        newPlayer.name = name;
+        newPlayer.highScore = 0;
+        playerList.Add(newPlayer);
+        playerIndex = playerList.Count - 1;
+        Save();
     }
 
-    public void GameOver()
+    public void SelectPlayer(string name)
     {
-        m_GameOver = true;
-        GameOverText.SetActive(true);
+        
+
+        playerIndex = playerList.FindIndex(x => x.name == name);
+        Save();
+    }
+
+    public bool SubmitScoreAndCheckIfHighScore(int score)
+    {
+        bool isHighScore = false;
+
+        if (highScores.Count == 0 || score > highScores[0].highScore)
+        {
+            isHighScore = true;
+        }
+        bool scoreAdded = false;
+        Player newPlayer = new Player();
+        newPlayer.name = playerList[playerIndex].name;
+        newPlayer.highScore = score;
+        Debug.Log(score);
+        for (int i = 0; i < highScores.Count; i++)
+        {
+            if (score > highScores[i].highScore)
+            {
+                
+                highScores.Insert(i, newPlayer);
+                scoreAdded = true;
+                break;
+            }
+        }
+        if(!scoreAdded)
+        {
+            highScores.Add(newPlayer);
+        }
+        if (highScores.Count > 10)
+        {
+            highScores.RemoveAt(highScores.Count - 1);
+        }
+
+        if (score > playerList[playerIndex].highScore)
+        {
+            playerList[playerIndex].highScore = score;
+        }
+        Save();
+        return isHighScore;
+    }
+
+
+
+    public void Exit()
+    {
+#if UNITY_EDITOR
+        EditorApplication.ExitPlaymode();
+#else
+            Application.Quit();
+#endif
     }
 }
